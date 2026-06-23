@@ -56,11 +56,6 @@ trap cleanup EXIT
 check_prereqs() {
     log_info "Checking prerequisites..."
 
-    # Cek apakah kita user pajak
-    if [[ "$(whoami)" != "pajak" ]]; then
-        log_warn "Not running as pajak (current: $(whoami)) — continuing anyway"
-    fi
-
     # Cek akses ke roundcube temp
     if [ ! -w "${RC_TEMP}" ]; then
         log_error "Cannot write to ${RC_TEMP}"
